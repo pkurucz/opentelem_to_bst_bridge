@@ -1,5 +1,6 @@
 
-//#include "vector_open_telemetry.h"
+#include "vector_open_telemetry.h"
+#include "bst_telemetry.h"
 #include <Wire.h>
 
 #define LED_ON() digitalWrite(LED_BUILTIN, HIGH)

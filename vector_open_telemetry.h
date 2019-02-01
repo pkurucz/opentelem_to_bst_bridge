@@ -27,6 +27,8 @@
  * CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
  */
 
+#include <stdint.h>
+
 #ifndef _TELEMETRY_PUBLIC
 #define _TELEMETRY_PUBLIC
 
@@ -57,75 +59,75 @@ typedef enum {
 } VECTOR_FLIGHT_MODES;
 
 typedef struct {
-  int32 LatitudeX1E7; // ( degree * 10,000,000 )
-  int32 LongitudeX1E7; // (degree * 10,000,000 )
-  UINT32 DistanceFromHomeMX10; // horizontal GPS distance from home point, in meters X 10 (decimeters)
-  UINT16 GroundspeedKPHX10; // ( km/h * 10 )
-  UINT16 CourseDegrees; // GPS course over ground, in degrees
-  int32 GPSAltitudecm; // ( GPS altitude, using WGS-84 ellipsoid, cm)
-  UINT8 HDOPx10; // GPS HDOP * 10
-  UINT8 SatsInUse; // satellites used for navigation
+  int32_t LatitudeX1E7; // ( degree * 10,000,000 )
+  int32_t LongitudeX1E7; // (degree * 10,000,000 )
+  uint32_t DistanceFromHomeMX10; // horizontal GPS distance from home point, in meters X 10 (decimeters)
+  uint16_t GroundspeedKPHX10; // ( km/h * 10 )
+  uint16_t CourseDegrees; // GPS course over ground, in degrees
+  int32_t GPSAltitudecm; // ( GPS altitude, using WGS-84 ellipsoid, cm)
+  uint8_t HDOPx10; // GPS HDOP * 10
+  uint8_t SatsInUse; // satellites used for navigation
 } VECTOR_GPS_TELEMETRY;
 
 typedef struct {
-    INT16 PitchDegrees;
-    INT16 RollDegrees;
-    INT16 YawDegrees;
+    int16_t PitchDegrees;
+    int16_t RollDegrees;
+    int16_t YawDegrees;
 } VECTOR_ATTITUDE;
 
 typedef struct {
-  INT16 AccelXCentiGrav;
-  INT16 AccelYCentiGrav;
-  INT16 AccelZCentiGrav;
+  int16_t AccelXCentiGrav;
+  int16_t AccelYCentiGrav;
+  int16_t AccelZCentiGrav;
 } VECTOR_ACCELERATION;
 
 typedef struct
 {
-  int32 BaroAltitudecm;  // zero referenced (from home position) barometric altitude in cm
-  UINT16 AirspeedKPHX10; // KPH * 10, requires optional pitot sensor
-  INT16 ClimbRateMSX100; // meters/second * 100
-  UINT16 RPM; // requires optional RPM sensor
+  int32_t BaroAltitudecm;  // zero referenced (from home position) barometric altitude in cm
+  uint16_t AirspeedKPHX10; // KPH * 10, requires optional pitot sensor
+  int16_t ClimbRateMSX100; // meters/second * 100
+  uint16_t RPM; // requires optional RPM sensor
   VECTOR_ATTITUDE Attitude;
   VECTOR_ACCELERATION Acceleration;
-  UINT16 PackVoltageX100;
-  UINT16 VideoTxVoltageX100;
-  UINT16 CameraVoltageX100;
-  UINT16 RxVoltageX100;
-  UINT16 PackCurrentX10;
-  INT16 TempDegreesCX10; // degrees C * 10, from optional temperature sensor
-  UINT16 mAHConsumed;
-  UINT16 CompassDegrees; // either magnetic compass reading (if compass enabled) or filtered GPS course over ground if not
-  UINT8 RSSIPercent;
-  UINT8 LQPercent;
+  uint16_t PackVoltageX100;
+  uint16_t VideoTxVoltageX100;
+  uint16_t CameraVoltageX100;
+  uint16_t RxVoltageX100;
+  uint16_t PackCurrentX10;
+  int16_t TempDegreesCX10; // degrees C * 10, from optional temperature sensor
+  uint16_t mAHConsumed;
+  uint16_t CompassDegrees; // either magnetic compass reading (if compass enabled) or filtered GPS course over ground if not
+  uint8_t RSSIPercent;
+  uint8_t LQPercent;
 } VECTOR_SENSOR_TELEMETRY;
 
 typedef struct
 {
-  UINT32 StartCode;
-  UINT32 TimestampMS;  // timestamp in milliseconds
+  uint32_t StartCode;
+  uint32_t TimestampMS;  // timestamp in milliseconds
   VECTOR_SENSOR_TELEMETRY SensorTelemetry;
   VECTOR_GPS_TELEMETRY GPSTelemetry;
-  UINT8 PresentFlightMode; // present flight mode, as defined in VECTOR_FLIGHT_MODES
-  UINT8 RFU[24];     // reserved for future use
-  UINT16 CRC;
+  uint8_t PresentFlightMode; // present flight mode, as defined in VECTOR_FLIGHT_MODES
+  uint8_t RFU[24];     // reserved for future use
+  uint16_t CRC;
 } VECTOR_OPEN_TELEMETRY;
 
 /*
 
 // sample code for calculating the CRC
 //
-// OpenTelem.CRC == CalculateCRC((UINT8 *)&OpenTelem, offsetof(VECTOR_OPEN_TELEMETRY, CRC), VTELEM_CRC_INIT);
+// OpenTelem.CRC == CalculateCRC((uint8_t *)&OpenTelem, offsetof(VECTOR_OPEN_TELEMETRY, CRC), VTELEM_CRC_INIT);
 
-UINT16 CRC16Worker(UINT16 icrc, UINT8 r0)
+uint16_t CRC16Worker(uint16_t icrc, uint8_t r0)
 {
   union {
-    UINT16 crc16; // 16-bit CRC
+    uint16_t crc16; // 16-bit CRC
     struct {
-      UINT8 crcl, crch;
+      uint8_t crcl, crch;
     } s;
   } u;
 
-  UINT8 a1;    // scratch byte
+  uint8_t a1;    // scratch byte
 
   u.crc16 = icrc;
 
@@ -144,10 +146,10 @@ UINT16 CRC16Worker(UINT16 icrc, UINT8 r0)
   return (u.crc16);
 }
 
-UINT16 CalculateCRC(UINT8 * pPacket, UINT8 Size, UINT16 InitCRC)
+uint16_t CalculateCRC(uint8_t * pPacket, uint8_t Size, uint16_t InitCRC)
 {
-  UINT16 i;
-  UINT16 CRC;
+  uint16_t i;
+  uint16_t CRC;
 
   CRC = InitCRC;
 
