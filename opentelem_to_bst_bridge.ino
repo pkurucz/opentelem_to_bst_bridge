@@ -1,10 +1,21 @@
+/*
+ * This is a Arduino project that handles converting
+ * Eagletree Vector Open Telemetry serial data (57600 Baud)
+ * to Team Blacksheep (TBS) BST (Blacksheep Telemetry)
+ * on an I2C bus.
+ */
+
 
 #include "vector_open_telemetry.h"
 #include "bst_telemetry.h"
 #include <Wire.h>
 
+/* ----------------------------------------------------- */
+
 #define LED_ON() digitalWrite(LED_BUILTIN, HIGH)
 #define LED_OFF() digitalWrite(LED_BUILTIN, LOW)
+
+/* ----------------------------------------------------- */
 
 // the setup routine runs once when you press reset:
 void setup() {
@@ -22,6 +33,8 @@ void setup() {
     delay(300);
   }
 }
+
+/* ----------------------------------------------------- */
 
 // the loop routine runs over and over again forever:
 void loop() {
