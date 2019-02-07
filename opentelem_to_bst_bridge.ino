@@ -19,6 +19,17 @@
 
 // the setup routine runs once when you press reset:
 void setup() {
+  Serial.begin(115200, SERIAL_8N1);
+
+  /* I2C Init, make sure the internal pull-ups are enabled */
+#if 1
+  pinMode (SDA, INPUT_PULLUP);
+  pinMode (SCL, INPUT_PULLUP);
+  digitalWrite(SDA, 1);
+  digitalWrite(SCL, 1);
+#endif
+  Wire.begin();
+  
   pinMode(LED_BUILTIN, OUTPUT);
   LED_OFF();
 
@@ -74,7 +85,12 @@ void loop() {
     Serial.println("No I2C devices found\n");
   else
     Serial.println("done\n");
- 
+
+    LED_ON();
+    delay(500);
+    LED_OFF();
+    delay(500);
+
   delay(5000);           // wait 5 seconds for next scan
 }
 
