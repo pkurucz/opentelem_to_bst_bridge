@@ -28,9 +28,12 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef _TELEMETRY_PUBLIC
 #define _TELEMETRY_PUBLIC
+
+/* ----------------------------------------------------- */
 
 #pragma pack(push, 1) // force byte alignment
 
@@ -39,129 +42,91 @@
 #define VTELEM_CRC_INIT 0xFFFF
 
 typedef enum {
-  VECTOR_FLIGHT_MODE_2D,
-  VECTOR_FLIGHT_MODE_2D_ALT_HOLD,
-  VECTOR_FLIGHT_MODE_2D_HEADING_HOLD,
-  VECTOR_FLIGHT_MODE_2D_ALT_HEADING_HOLD,
-  VECTOR_FLIGHT_MODE_LOITER,
-  VECTOR_FLIGHT_MODE_3D,
-  VECTOR_FLIGHT_MODE_3D_HEADING_HOLD,
-  VECTOR_FLIGHT_MODE_RTH,
-  VECTOR_FLIGHT_MODE_LAND,
-  VECTOR_FLIGHT_MODE_CARTESIAN,
-  VECTOR_FLIGHT_MODE_CARTESIAN_LOITER,
-  VECTOR_FLIGHT_MODE_POLAR,
-  VECTOR_FLIGHT_MODE_POLAR_LOITER,
-  VECTOR_FLIGHT_MODE_CENTER_STICK,
-  VECTOR_FLIGHT_MODE_OFF,
-  VECTOR_FLIGHT_MODE_WAYPOINT,
-  VECTOR_FLIGHT_MODE_MAX
+	VECTOR_FLIGHT_MODE_2D,
+	VECTOR_FLIGHT_MODE_2D_ALT_HOLD,
+	VECTOR_FLIGHT_MODE_2D_HEADING_HOLD,
+	VECTOR_FLIGHT_MODE_2D_ALT_HEADING_HOLD,
+	VECTOR_FLIGHT_MODE_LOITER,
+	VECTOR_FLIGHT_MODE_3D,
+	VECTOR_FLIGHT_MODE_3D_HEADING_HOLD,
+	VECTOR_FLIGHT_MODE_RTH,
+	VECTOR_FLIGHT_MODE_LAND,
+	VECTOR_FLIGHT_MODE_CARTESIAN,
+	VECTOR_FLIGHT_MODE_CARTESIAN_LOITER,
+	VECTOR_FLIGHT_MODE_POLAR,
+	VECTOR_FLIGHT_MODE_POLAR_LOITER,
+	VECTOR_FLIGHT_MODE_CENTER_STICK,
+	VECTOR_FLIGHT_MODE_OFF,
+	VECTOR_FLIGHT_MODE_WAYPOINT,
+	VECTOR_FLIGHT_MODE_MAX
 } VECTOR_FLIGHT_MODES;
 
 typedef struct {
-  int32_t LatitudeX1E7; // ( degree * 10,000,000 )
-  int32_t LongitudeX1E7; // (degree * 10,000,000 )
-  uint32_t DistanceFromHomeMX10; // horizontal GPS distance from home point, in meters X 10 (decimeters)
-  uint16_t GroundspeedKPHX10; // ( km/h * 10 )
-  uint16_t CourseDegrees; // GPS course over ground, in degrees
-  int32_t GPSAltitudecm; // ( GPS altitude, using WGS-84 ellipsoid, cm)
-  uint8_t HDOPx10; // GPS HDOP * 10
-  uint8_t SatsInUse; // satellites used for navigation
+	int32_t LatitudeX1E7; // ( degree * 10,000,000 )
+	int32_t LongitudeX1E7; // (degree * 10,000,000 )
+	uint32_t DistanceFromHomeMX10; // horizontal GPS distance from home point, in meters X 10 (decimeters)
+	uint16_t GroundspeedKPHX10; // ( km/h * 10 )
+	uint16_t CourseDegrees; // GPS course over ground, in degrees
+	int32_t GPSAltitudecm; // ( GPS altitude, using WGS-84 ellipsoid, cm)
+	uint8_t HDOPx10; // GPS HDOP * 10
+	uint8_t SatsInUse; // satellites used for navigation
 } VECTOR_GPS_TELEMETRY;
 
 typedef struct {
-    int16_t PitchDegrees;
-    int16_t RollDegrees;
-    int16_t YawDegrees;
+	int16_t PitchDegrees;
+	int16_t RollDegrees;
+	int16_t YawDegrees;
 } VECTOR_ATTITUDE;
 
 typedef struct {
-  int16_t AccelXCentiGrav;
-  int16_t AccelYCentiGrav;
-  int16_t AccelZCentiGrav;
+	int16_t AccelXCentiGrav;
+	int16_t AccelYCentiGrav;
+	int16_t AccelZCentiGrav;
 } VECTOR_ACCELERATION;
 
 typedef struct
 {
-  int32_t BaroAltitudecm;  // zero referenced (from home position) barometric altitude in cm
-  uint16_t AirspeedKPHX10; // KPH * 10, requires optional pitot sensor
-  int16_t ClimbRateMSX100; // meters/second * 100
-  uint16_t RPM; // requires optional RPM sensor
-  VECTOR_ATTITUDE Attitude;
-  VECTOR_ACCELERATION Acceleration;
-  uint16_t PackVoltageX100;
-  uint16_t VideoTxVoltageX100;
-  uint16_t CameraVoltageX100;
-  uint16_t RxVoltageX100;
-  uint16_t PackCurrentX10;
-  int16_t TempDegreesCX10; // degrees C * 10, from optional temperature sensor
-  uint16_t mAHConsumed;
-  uint16_t CompassDegrees; // either magnetic compass reading (if compass enabled) or filtered GPS course over ground if not
-  uint8_t RSSIPercent;
-  uint8_t LQPercent;
+	int32_t BaroAltitudecm;  // zero referenced (from home position) barometric altitude in cm
+	uint16_t AirspeedKPHX10; // KPH * 10, requires optional pitot sensor
+	int16_t ClimbRateMSX100; // meters/second * 100
+	uint16_t RPM; // requires optional RPM sensor
+	VECTOR_ATTITUDE Attitude;
+	VECTOR_ACCELERATION Acceleration;
+	uint16_t PackVoltageX100;
+	uint16_t VideoTxVoltageX100;
+	uint16_t CameraVoltageX100;
+	uint16_t RxVoltageX100;
+	uint16_t PackCurrentX10;
+	int16_t TempDegreesCX10; // degrees C * 10, from optional temperature sensor
+	uint16_t mAHConsumed;
+	uint16_t CompassDegrees; // either magnetic compass reading (if compass enabled) or filtered GPS course over ground if not
+	uint8_t RSSIPercent;
+	uint8_t LQPercent;
 } VECTOR_SENSOR_TELEMETRY;
 
 typedef struct
 {
-  uint32_t StartCode;
-  uint32_t TimestampMS;  // timestamp in milliseconds
-  VECTOR_SENSOR_TELEMETRY SensorTelemetry;
-  VECTOR_GPS_TELEMETRY GPSTelemetry;
-  uint8_t PresentFlightMode; // present flight mode, as defined in VECTOR_FLIGHT_MODES
-  uint8_t RFU[24];     // reserved for future use
-  uint16_t CRC;
+	uint32_t StartCode;
+	uint32_t TimestampMS;  // timestamp in milliseconds
+	VECTOR_SENSOR_TELEMETRY SensorTelemetry;
+	VECTOR_GPS_TELEMETRY GPSTelemetry;
+	uint8_t PresentFlightMode; // present flight mode, as defined in VECTOR_FLIGHT_MODES
+	uint8_t RFU[24];     // reserved for future use
+	uint16_t CRC;
 } VECTOR_OPEN_TELEMETRY;
 
-/*
+/* ----------------------------------------------------- */
 
-// sample code for calculating the CRC
-//
-// OpenTelem.CRC == CalculateCRC((uint8_t *)&OpenTelem, offsetof(VECTOR_OPEN_TELEMETRY, CRC), VTELEM_CRC_INIT);
+extern VECTOR_OPEN_TELEMETRY vot_telemetry;
+extern bool vot_telemetry_valid;
 
-uint16_t CRC16Worker(uint16_t icrc, uint8_t r0)
-{
-  union {
-    uint16_t crc16; // 16-bit CRC
-    struct {
-      uint8_t crcl, crch;
-    } s;
-  } u;
+/* ----------------------------------------------------- */
 
-  uint8_t a1;    // scratch byte
+extern void vot_init(void);
+extern void vot_handler_task(void);
 
-  u.crc16 = icrc;
+/* ----------------------------------------------------- */
 
-  r0 = r0 ^ u.s.crch;
-  a1 = u.s.crcl;
-  u.s.crch = r0;
-  u.s.crch = (u.s.crch << 4) | (u.s.crch >> 4);
-  u.s.crcl = u.s.crch ^ r0;
-  u.crc16 &= 0x0ff0;
-  r0 ^= u.s.crch;
-  a1 ^= u.s.crcl;
-  u.crc16 <<= 1;
-  u.s.crcl ^= r0;
-  u.s.crch ^= a1;
-
-  return (u.crc16);
-}
-
-uint16_t CalculateCRC(uint8_t * pPacket, uint8_t Size, uint16_t InitCRC)
-{
-  uint16_t i;
-  uint16_t CRC;
-
-  CRC = InitCRC;
-
-  for (i = 0; i < Size; i++) {
-
-    CRC = CRC16Worker(CRC, pPacket[i]);
-  }
-
-  return CRC;
-}
-
-*/
 
 #pragma pack(pop)
 #endif // _TELEMETRY_PUBLIC
