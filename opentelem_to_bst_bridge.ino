@@ -5,92 +5,64 @@
  * on an I2C bus.
  */
 
+/*
+ * TODO:
+ * - Make sure the artificial horizon display of the 
+ *   Roll and pitch values when the attitude goes past 90 degrees is
+ *   handled properly.
+ * - Heading / vot_telemetry.GPSTelemetry.CourseDegrees Make sure this is scaled properly
+ *   either in BST code or on the taranis
+ * - Map the flight controller modes from vector->bst
+ * - Add in support for extra Vector data throught the RC channels?
+ */
 
 #include "vector_open_telemetry.h"
 #include "bst_telemetry.h"
-#include <Wire.h>
+#include "vector_open_telemetry.h"
+#include "config.h"
+#include "util.h"
 
 /* ----------------------------------------------------- */
 
-#define LED_ON() digitalWrite(LED_BUILTIN, HIGH)
-#define LED_OFF() digitalWrite(LED_BUILTIN, LOW)
 
 /* ----------------------------------------------------- */
 
 // the setup routine runs once when you press reset:
 void setup() {
-  Serial.begin(115200, SERIAL_8N1);
+	pinMode(LED_BUILTIN, OUTPUT);
+	LED_OFF();
 
-  /* I2C Init, make sure the internal pull-ups are enabled */
-#if 1
-  pinMode (SDA, INPUT_PULLUP);
-  pinMode (SCL, INPUT_PULLUP);
-  digitalWrite(SDA, 1);
-  digitalWrite(SCL, 1);
-#endif
-  Wire.begin();
-  
-  pinMode(LED_BUILTIN, OUTPUT);
-  LED_OFF();
+	Serial.begin(57600, SERIAL_8N1);
+	while (!Serial);             // Leonardo: wait for serial monitor
+	Serial.println("\r\n\r\nOpentelemetry -> BST Bridge init ... ");
+	
+	/* Initialize the Blacksheep Telemetry (BST) layer */
+	bst_init();
+	
+	/* Initialize the Eagletree Vector Open Telemetry layer */
+	vot_init();
+	
+	/* Toggle the led to indicate setup complete */
+	for(int i = 0; i < 3; i++) {
+		LED_ON();
+		delay(200);
+		LED_OFF();
+		delay(100);
+	}
+	Serial.println("Complete\r\n");
 
-  while (!Serial);             // Leonardo: wait for serial monitor
-  Serial.println("\nI2C Scanner");
-
-  /* Toggle the led to indicate setup complete */
-  for(int i = 0; i < 5; i++) {
-    LED_ON();
-    delay(700);
-    LED_OFF();
-    delay(300);
-  }
 }
 
 /* ----------------------------------------------------- */
 
 // the loop routine runs over and over again forever:
 void loop() {
-    byte error, address;
-  int nDevices;
- 
-  Serial.println("Scanning...");
- 
-  nDevices = 0;
-  for(address = 1; address < 127; address++ )
-  {
-    // The i2c_scanner uses the return value of
-    // the Write.endTransmisstion to see if
-    // a device did acknowledge to the address.
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
- 
-    if (error == 0)
-    {
-      Serial.print("I2C device found at address 0x");
-      if (address<16)
-        Serial.print("0");
-      Serial.print(address,HEX);
-      Serial.println("  !");
- 
-      nDevices++;
-    }
-    else if (error==4)
-    {
-      Serial.print("Unknown error at address 0x");
-      if (address<16)
-        Serial.print("0");
-      Serial.println(address,HEX);
-    }    
-  }
-  if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
-  else
-    Serial.println("done\n");
+	/* Run the Blacksheep Telemetry (BST) task */
+	bst_handler_task();
 
-    LED_ON();
-    delay(500);
-    LED_OFF();
-    delay(500);
-
-  delay(5000);           // wait 5 seconds for next scan
+  /* Run the Eagletree Vector Open Telemetry task */
+	vot_handler_task();
 }
+
+/* ----------------------------------------------------- */
 
