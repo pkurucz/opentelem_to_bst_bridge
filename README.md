@@ -8,6 +8,31 @@ for lua scripts and the like.
 
 ---
 
+### Wiring Notes:
+
+	* Vector
+		* UART TX -> Arduino D8
+		* Gnd -> Gnd
+		* (Optional) 5V -> VIN or 5V
+
+	![Vector Wiring](/docs/wiring-vector.jpg)
+
+	* Crossfire
+		* SCL (BST Cable: White) -> Arduino A5 and bridge 4K pullup from A2
+		* SDA (BST Cable: Yellow) -> Arduino A4 and bridge 4K pullup from A3
+		* Gnd (BST Cable: Unshielded) -> Gnd
+		* (Optional) 5V (BST Cable: Black) -> VIN
+			* Make sure the bridge 5V bad on the Nano Breakout board if your using it
+
+	![BST I2C Wiring 1](/docs/wiring-bst1.jpg)
+	![BST I2C Wiring 2](/docs/wiring-bst2.jpg)
+	![BST I2C Wiring Closeup / Pullups](/docs/wiring-closeup.jpg)
+
+	* Misc
+		* One of the 5V supplies must be connected to power the Arduino
+
+---
+
 ### Status:
 	* Basic Opentelemetry->BST working
 	* Supported Telemetry Data
