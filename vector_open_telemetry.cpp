@@ -1,4 +1,3 @@
-
 /* Eagletree Vector Open Telemetry Protocol Handler
  *  Datatype definitions and helper functions
  */
@@ -17,10 +16,11 @@
 #define VOT_STREAMING_CRC
 
 // Use the hardware UART instead of a SoftwareSerial one
-#define VOT_HARDWARE_UART
+//#define VOT_HARDWARE_UART
+#define VOT_ALTSOFTSERIAL_UART   /* Pins: TX: 9, RX: 8, Unusable PWM: 10 */
 
 // Debug prints of the received data.  Turn off for a deployed release
-#define VOT_PRINT_TELEMETRY_DATA
+//#define VOT_PRINT_TELEMETRY_DATA
 
 #define VOT_TELEMETRY_TIMEOUT_MS (3 * 1000)
 
@@ -51,6 +51,10 @@ static uint16_t vot_CalculateCRC(uint8_t * pPacket, uint8_t Size, uint16_t InitC
 
 #if defined(VOT_HARDWARE_UART)
 #define VOT_UART Serial
+#elif defined(VOT_ALTSOFTSERIAL_UART)
+#include <AltSoftSerial.h>
+AltSoftSerial vot_uart;
+#define VOT_UART vot_uart
 #else
 #include <SoftwareSerial.h>
 SoftwareSerial vot_uart(8, 9);
@@ -173,14 +177,16 @@ void vot_handler_task(void) {
 #if defined(VOT_PRINT_TELEMETRY_DATA)
 				vot_print_telemetry_data();
 #endif
-				Serial.println(F("VOT!"));
+        Serial.print('.');
+//				Serial.println(F("VOT!"));
 //				Serial.print(F("VOT! aurdino delta: "));
 //				Serial.println(vot_telemetry_timestamp - vot_telemetry_prev_timestamp ,DEC);
 //				Serial.print(F("vector delta: "));
 //				Serial.println(vot_telemetry.TimestampMS - vot_prev_TimestampMS,DEC);
 
 			} else {
-				Serial.println(F("!VOT_CRC!"));
+        Serial.println('!');
+//        Serial.println(F("!VOT_CRC!"));
 			}
 			parse_state = 0;
 		}
@@ -268,7 +274,7 @@ void vot_print_telemetry_data(void) {
 		Serial.println(vot_flightmodes[VECTOR_FLIGHT_MODE_MAX]);
 	}
 
-	delay(300);
+//	delay(300);
 }
 #endif /* defined(VOT_PRINT_TELEMETRY_DATA) */
 

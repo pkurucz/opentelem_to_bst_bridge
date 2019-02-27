@@ -32,7 +32,7 @@ void setup() {
 	pinMode(LED_BUILTIN, OUTPUT);
 	LED_OFF();
 
-	Serial.begin(57600, SERIAL_8N1);
+	Serial.begin(230400, SERIAL_8N1);
 	while (!Serial);             // Leonardo: wait for serial monitor
 	Serial.println("\r\n\r\nOpentelemetry -> BST Bridge init ... ");
 	

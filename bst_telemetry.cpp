@@ -17,7 +17,9 @@
 /* ----------------------------------------------------- */
 /*                   Local Datatypes                     */
 
-//#define ENABLE_BST_DEBUG 0
+#define ENABLE_BST_DEBUG 0
+
+#if ENABLE_BST_DEBUG
 
 #define BST_PRINT(...) \
 	do { \
@@ -31,20 +33,19 @@
 
 #define BST_VPRINT(...) \
 	do { \
-		if(verbose_debug) { \
+		if(1) { \
 			Serial.print(__VA_ARGS__); \
 		} \
 	} while(0)
 
 #define BST_VPRINTLN(...) \
 	do { \
-		if(verbose_debug) { \
+		if(1) { \
 			Serial.println(__VA_ARGS__); \
 		} \
 	} while(0)
 
 
-#if ENABLE_BST_DEBUG
 #define BST_DPRINT(...) \
 	do { \
 		BST_VPRINT(__VA_ARGS__); \
@@ -56,6 +57,12 @@
 	} while(0)
 
 #else
+
+#define BST_PRINT(...)  do{ } while(0)
+#define BST_PRINTLN(...)  do{ } while(0)
+
+#define BST_VPRINT(...)  do{ } while(0)
+#define BST_VPRINTLN(...)  do{ } while(0)
 
 #define BST_DPRINT(...)  do{ } while(0)
 #define BST_DPRINTLN(...)  do{ } while(0)
@@ -404,7 +411,7 @@ static bool writeBatteryStatusToBST(void)
 	uint16_t current = vot_telemetry.SensorTelemetry.PackCurrentX10; // BST: CurrentX10
 	uint32_t mAHConsumed = vot_telemetry.SensorTelemetry.mAHConsumed; // BST: mAHConsumed
 
-	BST_VPRINT("Write Battery Status...");
+	BST_VPRINTLN("Write Battery Status...");
 
 	bstMasterStartBuffer(PUBLIC_ADDRESS);
 	bstMasterWrite8(BATTERY_STATUS_FRAME_ID);
