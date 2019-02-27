@@ -15,7 +15,7 @@ for lua scripts and the like.
 		* Gnd -> Gnd
 		* (Optional) 5V -> VIN or 5V
 
-![Vector Wiring](docs/wiring-vector.jpg)
+![Vector Wiring](/docs/wiring-vector.jpg)
 
 	* Crossfire
 		* SCL (BST Cable: White) -> Arduino A5 and bridge 4K pullup from A2
@@ -24,9 +24,9 @@ for lua scripts and the like.
 		* (Optional) 5V (BST Cable: Black) -> VIN
 			* Make sure the bridge 5V bad on the Nano Breakout board if your using it
 
-![BST I2C Wiring 1](docs/wiring-bst1.jpg)
-![BST I2C Wiring 2](docs/wiring-bst2.jpg)
-![BST I2C Wiring Closeup / Pullups](docs/wiring-closeup.jpg)
+![BST I2C Wiring 1](/docs/wiring-bst1.jpg)
+![BST I2C Wiring 2](/docs/wiring-bst2.jpg)
+![BST I2C Wiring Closeup / Pullups](/docs/wiring-closeup.jpg)
 
 	* Misc
 		* One of the 5V supplies must be connected to power the Arduino
