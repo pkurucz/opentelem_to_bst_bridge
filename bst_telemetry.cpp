@@ -15,93 +15,127 @@
 #include "bst_telemetry.h"
 
 /* ----------------------------------------------------- */
-/*                   Local Datatypes                     */
+/*                    Local Defines                     */
 
-#define ENABLE_BST_DEBUG 0
+/* Enable for verbose debug lovin */
+//#define BST_DEBUG
 
-#if ENABLE_BST_DEBUG
+/* -------------- */
 
-#define BST_PRINT(...) \
-	do { \
-		Serial.print(__VA_ARGS__); \
-	} while(0)
+#define BST_BUFFER_SIZE                              128
 
-#define BST_PRINTLN(...) \
-	do { \
-		Serial.println(__VA_ARGS__); \
-	} while(0)
+#define BST_PROTOCOL_VERSION                         0
+#define API_VERSION_MAJOR                            1 // increment when major changes are made
+#define API_VERSION_MINOR                            13 // increment when any change is made, reset to zero when major changes are released after changing API_VERSION_MAJOR
+#define API_VERSION_LENGTH                           2
 
-#define BST_VPRINT(...) \
-	do { \
-		if(1) { \
-			Serial.print(__VA_ARGS__); \
-		} \
-	} while(0)
+/* Configure the CRC peripheral to use the polynomial x8 + x7 + x6 + x4 + x2 + 1 */
+#define BST_CRC_POLYNOMIAL                              0xD5
 
-#define BST_VPRINTLN(...) \
-	do { \
-		if(1) { \
-			Serial.println(__VA_ARGS__); \
-		} \
-	} while(0)
+/* I2C Addresses */    
+#define I2C_ADDR_TBS_CORE_PNP_PRO                    0x80
+#define I2C_ADDR_RESERVED                            0x8A
+#define I2C_ADDR_PNP_PRO_DIDITAL_CURRENT_SENSOR      0xC0
+#define I2C_ADDR_PNP_PRO_GPS                         0xC2
+#define I2C_ADDR_TSB_BLACKBOX                        0xC4
+#define I2C_ADDR_CLEANFLIGHT_FC                      0xC8
+#define I2C_ADDR_CROSSFIRE_UHF_RECEIVER              0xEC
 
+/* MSP Frame address */
+#define PUBLIC_ADDRESS                               0x00
 
-#define BST_DPRINT(...) \
-	do { \
-		BST_VPRINT(__VA_ARGS__); \
-	} while(0)
+/* Frame Types */
+#define GPS_POSITION_FRAME_ID               0x02    /* Len: 15 bytes (PX4) */
+#define GPS_TIME_FRAME_ID                   0x03
+#define BATTERY_STATUS_FRAME_ID             0x08
+#define CROSSFIRE_RSSI_FRAME_ID             0x14
+#define RC_CHANNEL_FRAME_ID                 0x15
+#define RC_CHANNELS_PACKED_FRAME_ID         0x16    /* From: PX4, Len: 22 bytes, 11 bits per channel * 16 channels */
+#define FC_ATTITUDE_FRAME_ID                0x1E    /* Len: 6 bytes (PX4) */
+#define CLEANFLIGHT_MODE_FRAME_ID           0x20
+#define FLIGHT_MODE_FRAME_ID                0x21    /* From: PX4,  */
 
-#define BST_DPRINTLN(...) \
-	do { \
-		BST_VPRINTLN(__VA_ARGS__); \
-	} while(0)
+/* CLEANFLIGHT_MODE_FRAME_ID bitfields */ 
+#define BST_FLAG_ARMED             (0x01 << 0)
+#define BST_FLAG_ANGLE_MODE        (0x01 << 1)
+#define BST_FLAG_HORIZON_MODE      (0x01 << 2)
+#define BST_FLAG_BARO_MODE         (0x01 << 3)
+#define BST_FLAG_MAG_MODE          (0x01 << 4)
+#define BST_FLAG_AIR_MODE          (0x01 << 5)
+#define BST_FLAG_RANGEFINDER_MODE  (0x01 << 6)
+#define BST_FLAG_FAILSAFE_MODE     (0x01 << 7)
 
-#else
+#define BST_SENSOR_ACC             (0x01 << 0)
+#define BST_SENSOR_BARO            (0x01 << 1)
+#define BST_SENSOR_MAG             (0x01 << 2)
+#define BST_SENSOR_GPS             (0x01 << 3)
+#define BST_SENSOR_RANGEFINDER     (0x01 << 4)
 
-#define BST_PRINT(...)  do{ } while(0)
-#define BST_PRINTLN(...)  do{ } while(0)
+#define USABLE_TIMER_CHANNEL_COUNT 8
 
-#define BST_VPRINT(...)  do{ } while(0)
-#define BST_VPRINTLN(...)  do{ } while(0)
-
-#define BST_DPRINT(...)  do{ } while(0)
-#define BST_DPRINTLN(...)  do{ } while(0)
-
-#endif
 
 /* ----------------------------------------------------- */
 /*        Local Variables and function prototypes        */
-static volatile uint8_t CRC8 = 0;
+static uint8_t bst_crc = 0;
 
-static void bst_crc8Cal(uint8_t data_in);
-static void bstMasterStartBuffer(uint8_t address);
-static void bstMasterWrite8(uint8_t data);
-static void bstMasterWrite16(uint16_t data);
-static void bstMasterWrite32(uint32_t data);
-static bool bstWriteBusy(void);
-static bool bstMasterWrite(uint8_t* data);
-static void bstMasterWriteLoop(void);
+static uint8_t bst_write_buffer[BST_BUFFER_SIZE];
+static uint8_t bst_write_buffer_ptr;
 
-static bool writeGpsPositionFrameToBST(void);
-static bool writeBatteryStatusToBST(void);
-static bool writeRollPitchYawToBST(void);
-static bool writeRCChannelToBST(void);
-static bool writeFCModeToBST(void);
+static uint8_t bst_i2c_buffer[BST_BUFFER_SIZE] = {0};
+static uint8_t bst_i2c_buffer_index = 0;
+static uint8_t bst_i2c_buffer_len = 0;
 
+/* -- Timestamp variables -- */
+static uint32_t bst_RPY_TimestampMS;
+static uint32_t bst_GPS_TimestampMS;
+static uint32_t bst_Battery_TimestampMS;
+static uint32_t bst_FC_Mode_TimestampMS;
+static uint32_t bst_RC_Chan_TimestampMS;
+
+/* -- Utility functions -- */
+static void bst_calc_crc(uint8_t data_in);
+
+static void bst_reset_buffer(uint8_t address);
+static void bst_buffer8(uint8_t data);
+static void bst_buffer16(uint16_t data);
+static void bst_buffer32(uint32_t data);
+
+static bool bst_write_busy(void);
+static bool bst_master_write(uint8_t* data);
+static void bst_write_loop(void);
+
+/* -- Data conversion and output functions -- */
+
+/* Vector translation/write functions */
+static bool bst_write_vector_gps(void);
+static bool bst_write_vector_battery(void);
+static bool bst_write_vector_rpy(void);
+static bool bst_write_vector_fc_mode(void);
+
+/* Test write functions */
+#if 0
+static bool bst_read_rc_channels(void);
+static bool bst_write_rc_channels(void);
+#endif
 
 /* ----------------------------------------------------- */
 
-void hex_print(uint8_t byte) {
-	if (byte < 16)
-		BST_DPRINT("0");
-	BST_DPRINT(byte, HEX);		
-	BST_DPRINT(" ");
-}
+#define BST_HEX_PRINT(_X) do { hex_print((_X)); } while(0)
+#define BST_PRINT(...) do { Serial.print(__VA_ARGS__); } while(0)
+#define BST_PRINTLN(...) do { Serial.println(__VA_ARGS__); } while(0)
 
-uint32_t bst_RPY_TimestampMS;
-uint32_t bst_GPS_TimestampMS;
-uint32_t bst_Battery_TimestampMS;
-uint32_t bst_FCMode_TimestampMS;
+#ifdef BST_DEBUG
+#define BST_HEX_DPRINT(_X) do { hex_print((_X)); } while(0)
+#define BST_DPRINT(...) do { Serial.print(__VA_ARGS__); } while(0)
+#define BST_DPRINTLN(...) do { Serial.println(__VA_ARGS__); } while(0)
+#else
+#define BST_HEX_DPRINT(_X) do{ } while(0) 
+#define BST_DPRINT(...) do{ } while(0)
+#define BST_DPRINTLN(...) do{ } while(0)
+#endif
+
+
+/* ----------------------------------------------------- */
 
 void bst_init(void) {
 
@@ -114,12 +148,10 @@ void bst_init(void) {
 #endif
 
 	/* Use Digital Pins 16 and 17 with external pull-up resistors to pull up SCL and SDA */
-#if 1
 	pinMode (16, OUTPUT);
 	pinMode (17, OUTPUT);
 	digitalWrite(16, 1);
 	digitalWrite(17, 1);
-#endif
 
 	Wire.begin();
 	Wire.setClock(100000);
@@ -128,20 +160,21 @@ void bst_init(void) {
 	bst_RPY_TimestampMS = 0;
 	bst_GPS_TimestampMS = 0;
 	bst_Battery_TimestampMS = 0;
-	bst_FCMode_TimestampMS = 0;
+	bst_FC_Mode_TimestampMS = 0;
+	bst_RC_Chan_TimestampMS = 0;
 }
 
 
 void bst_handler_task(void) {
 
 	/* Handle overall I2C tasks */
-    bstMasterWriteLoop();
+    bst_write_loop();
 
 	/* Let other system tasks run while I2C is busy */
-	if (bstWriteBusy()) return;
+	if (bst_write_busy()) return;
 
 	/* ---- Queue up the next I2C transaction ----- */
-//	writeGpsPositionFrameToBST();
+//	bst_write_vector_gps();
 //	return;
 
 	/* Telemetry update priority is based on the order things appear here */
@@ -152,45 +185,51 @@ void bst_handler_task(void) {
 
 		LED_ON();
 
-		writeRollPitchYawToBST();
+		bst_write_vector_rpy();
 		return;
 	}
 
 	if(bst_GPS_TimestampMS != vot_telemetry.TimestampMS) {
 		bst_GPS_TimestampMS = vot_telemetry.TimestampMS;
 
-		writeGpsPositionFrameToBST();
+		bst_write_vector_gps();
 		return;
 	}
 
 	if(bst_Battery_TimestampMS != vot_telemetry.TimestampMS) {
 		bst_Battery_TimestampMS = vot_telemetry.TimestampMS;
 
-		writeBatteryStatusToBST();
+		bst_write_vector_battery();
 		return;
 	}
 
+	if(bst_FC_Mode_TimestampMS != vot_telemetry.TimestampMS) {
+		bst_FC_Mode_TimestampMS = vot_telemetry.TimestampMS;
+
+		bst_write_vector_fc_mode();
+		return;
+	}
+
+#if 0
+	if(bst_RC_Chan_TimestampMS != vot_telemetry.TimestampMS) {
+		bst_RC_Chan_TimestampMS = vot_telemetry.TimestampMS;
+
+		bst_read_rc_channels();
+		return;
+	}
+#endif
+
 	LED_OFF();
 
-#if 0
-	writeFCModeToBST();
-	writeRCChannelToBST();
-#endif
-
-
-#if 0
-	Serial.println("Scanning...");
-	i2c_scan();
-#endif
 
 }
 
 /* ----------------------------------------------------- */
 
-static void bst_crc8Cal(uint8_t data_in)
+static void bst_calc_crc(uint8_t data_in)
 {
-	/* Polynom = x^8+x^7+x^6+x^4+x^2+1 = x^8+x^7+x^6+x^4+x^2+X^0 */
-	uint8_t Polynom = BST_CRC_POLYNOM;
+	/* polynomial = x^8+x^7+x^6+x^4+x^2+1 = x^8+x^7+x^6+x^4+x^2+X^0 */
+	uint8_t polynomial = BST_CRC_POLYNOMIAL;
 	bool MSB_Flag;
 
 	/* Step through each bit of the BYTE (8-bits) */
@@ -199,81 +238,74 @@ static void bst_crc8Cal(uint8_t data_in)
 		MSB_Flag = false;
 
 		/* MSB_Set = 80; */
-		if (CRC8 & 0x80) {
+		if (bst_crc & 0x80) {
 			MSB_Flag = true;
 		}
 
-		CRC8 <<= 1;
+		bst_crc <<= 1;
 
 		/* MSB_Set = 80; */
 		if (data_in & 0x80) {
-			CRC8++;
+			bst_crc++;
 		}
 		data_in <<= 1;
 
 		if (MSB_Flag == true) {
-			CRC8 ^= Polynom;
+			bst_crc ^= polynomial;
 		}
 	}
 }
 
 /* ----------------------------------------------------- */
 
-static uint8_t masterWriteBufferPointer;
-static uint8_t masterWriteData[BST_BUFFER_SIZE];
 
-static uint8_t dataBuffer[BST_BUFFER_SIZE] = {0};
-static uint8_t dataBufferPointer = 0;
-static uint8_t bstWriteDataLen = 0;
-
-
-static void bstMasterStartBuffer(uint8_t address)
+static void bst_reset_buffer(uint8_t address)
 {   
-    masterWriteData[0] = address;
-    masterWriteBufferPointer = 2;
+    bst_write_buffer[0] = address;
+    bst_write_buffer_ptr = 2;
 }
 
-static void bstMasterWrite8(uint8_t data)
+static void bst_buffer8(uint8_t data)
 {   
-    masterWriteData[masterWriteBufferPointer++] = data;
-    masterWriteData[1] = masterWriteBufferPointer;
+    bst_write_buffer[bst_write_buffer_ptr++] = data;
+    bst_write_buffer[1] = bst_write_buffer_ptr;
 }
 
-static void bstMasterWrite16(uint16_t data)
+static void bst_buffer16(uint16_t data)
 {   
-    bstMasterWrite8((uint8_t)(data >> 8));
-    bstMasterWrite8((uint8_t)(data >> 0));
+    bst_buffer8((uint8_t)(data >> 8));
+    bst_buffer8((uint8_t)(data >> 0));
 }
 
-static void bstMasterWrite32(uint32_t data)
+static void bst_buffer32(uint32_t data)
 {   
-    bstMasterWrite16((uint16_t)(data >> 16));
-    bstMasterWrite16((uint16_t)(data >> 0));
+    bst_buffer16((uint16_t)(data >> 16));
+    bst_buffer16((uint16_t)(data >> 0));
 }
 
-static bool bstWriteBusy(void)
+static bool bst_write_busy(void)
 {
-    if (bstWriteDataLen)
+    if (bst_i2c_buffer_len)
         return true;
     else
         return false;
 }
 
-static bool bstMasterWrite(uint8_t* data) 
+static bool bst_master_write(uint8_t* data) 
 {       
-    if (bstWriteDataLen==0) {
-        CRC8 = 0;
-        dataBufferPointer = 0;
-        dataBuffer[0] = *data;
-        dataBuffer[1] = *(data+1);
-        bstWriteDataLen = dataBuffer[1] + 2;
-        for (uint8_t i=2; i<bstWriteDataLen; i++) {
-            if (i==(bstWriteDataLen-1)) {
-                bst_crc8Cal(0);
-                dataBuffer[i] = CRC8;
+    if (bst_i2c_buffer_len==0) {
+        bst_crc = 0;
+        bst_i2c_buffer_index = 0;
+        bst_i2c_buffer[0] = *data;
+        bst_i2c_buffer[1] = *(data+1);
+        bst_i2c_buffer_len = bst_i2c_buffer[1] + 2;
+        for (uint8_t i=2; i<bst_i2c_buffer_len; i++) {
+            if (i==(bst_i2c_buffer_len-1)) {
+                bst_calc_crc(0);
+                bst_i2c_buffer[i] = bst_crc;
             } else {
-                dataBuffer[i] = *(data+i);
-                bst_crc8Cal((uint8_t)dataBuffer[i]);
+                bst_i2c_buffer[i] = *(data+i);
+                bst_calc_crc((uint8_t)bst_i2c_buffer[i]);
             }
         }
         return true;
@@ -281,92 +313,60 @@ static bool bstMasterWrite(uint8_t* data)
     return false;
 }   
         
-static void bstMasterWriteLoop(void)
+static void bst_write_loop(void)
 {
-    if (bstWriteDataLen && dataBufferPointer==0) {
-		BST_DPRINT("I2C Write, bstWriteDataLen=");
-		BST_DPRINT(bstWriteDataLen, DEC);
-		BST_DPRINT(" ... ");
+    if (bst_i2c_buffer_len && bst_i2c_buffer_index==0) {
+		BST_DPRINT(F("I2C Write, bst_i2c_buffer_len="));
+		BST_DPRINT(bst_i2c_buffer_len, DEC);
+		BST_DPRINT(F(" ... "));
 
-		Wire.beginTransmission(dataBuffer[0]);
-        dataBufferPointer = 1;
+		Wire.beginTransmission(bst_i2c_buffer[0]);
+        bst_i2c_buffer_index = 1;
 
-#if ENABLE_BST_DEBUG
-		hex_print(dataBuffer[0]);
-#endif
+		BST_HEX_DPRINT(bst_i2c_buffer[0]);
 
-		for(int i = 1; i < bstWriteDataLen; i++) {
-#if ENABLE_BST_DEBUG
-			hex_print(dataBuffer[dataBufferPointer]);
-#endif
-			Wire.write(dataBuffer[dataBufferPointer]);
+		for(int i = 1; i < bst_i2c_buffer_len; i++) {
+			BST_HEX_DPRINT(bst_i2c_buffer[bst_i2c_buffer_index]);
+			Wire.write(bst_i2c_buffer[bst_i2c_buffer_index]);
 
-			dataBufferPointer++;
+			bst_i2c_buffer_index++;
 		}
 
 		uint8_t error = Wire.endTransmission();
 
-#if ENABLE_BST_DEBUG
 		switch(error) {
 			case 0:
-				BST_DPRINTLN("Success");
+				BST_DPRINTLN(F("Success"));
 				break;
 			case 1:
-				BST_DPRINTLN("1-Data too long");
+				BST_DPRINTLN(F("1-Data too long"));
 				break;
 			case 2:
-				BST_DPRINTLN("2-NACK on addr");
+				BST_DPRINTLN(F("2-NACK on addr"));
 				break;
 			case 3:
-				BST_DPRINTLN("3-NACK on data");
+				BST_DPRINTLN(F("3-NACK on data"));
 				break;
 			default:
 				BST_DPRINT(error,DEC);
-				BST_DPRINTLN("-Other error");
+				BST_DPRINTLN(F("-Other error"));
 				break;
 		}
-#endif
 
-		dataBufferPointer = 0;
-		bstWriteDataLen = 0;
+		bst_i2c_buffer_index = 0;
+		bst_i2c_buffer_len = 0;
     }
 }
 
-
-/* 
-	 0: addr
-	 1: len - Number of bytes including addr and len, doesn't include crc
-	 2: frame id
-	 3: lat
-	 4: lat
-	 5: lat
-	 6: lat
-	 7: lon
-	 8: lon
-	 9: lon
-	10: lon
-	11: speed
-	12: speed
-	13: heading
-	14: heading
-	15: alt
-	16: alt
-	17: numsat
-	18: zero
-	19: crc8
-*/
-
-static bool writeGpsPositionFrameToBST(void)
+static bool bst_write_vector_gps(void)
 {
 
 	uint32_t lat = vot_telemetry.GPSTelemetry.LatitudeX1E7; // BST: LatitudeX1E7
 	uint32_t lon = vot_telemetry.GPSTelemetry.LongitudeX1E7; // BST: LongitudeX1E7
-
-#if 1
-	uint16_t speed = vot_telemetry.SensorTelemetry.AirspeedKPHX10; // BST: AirspeedKPHX10, requires optional pitot sensor
-#else
 	uint16_t speed = vot_telemetry.GPSTelemetry.GroundspeedKPHX10; // BST: GroundspeedKPHX10
-#endif
+	uint16_t alt = vot_telemetry.GPSTelemetry.GPSAltitudecm / 100; // BST: GPSAltitudeM
+	uint16_t altitude = alt + 1000; // BST: in Meters, +1000 added as offset
+	uint8_t numOfSat = vot_telemetry.GPSTelemetry.SatsInUse; // BST: Number of Sats
 
 #if 1
 	/* Send coordinates as 0 - 2X3.14159(PI)X10000 */
@@ -378,179 +378,124 @@ static bool writeGpsPositionFrameToBST(void)
 	uint16_t gpsHeading = 100 * vot_telemetry.GPSTelemetry.CourseDegrees;
 #endif
 
-#if 1
-	uint16_t alt = vot_telemetry.GPSTelemetry.GPSAltitudecm / 100; // BST: GPSAltitudeM
-#else
-	uint16_t alt = vot_telemetry.GPSTelemetry.GPSAltitudecm / 100; // BST: GPSAltitudeM
+#ifdef BST_CONFIG_TELEM_USE_VECTOR_AIRSPEED
+	speed = vot_telemetry.SensorTelemetry.AirspeedKPHX10; // BST: AirspeedKPHX10, requires optional pitot sensor
 #endif
-	uint16_t altitude = alt + 1000; // BST: in Meters, +1000 added as offset
 
-	uint8_t numOfSat = vot_telemetry.GPSTelemetry.SatsInUse; // BST: Number of Sats
-		
-	BST_VPRINT("Write GPS Position... ");
-	BST_VPRINT(altitude, DEC);
-	BST_VPRINT(", ");
-	BST_VPRINTLN(gpsHeading, DEC);
+	BST_DPRINT(F("Write GPS Position... "));
+	BST_DPRINT(altitude, DEC);
+	BST_DPRINT(F(", "));
+	BST_DPRINTLN(gpsHeading, DEC);
 
-	bstMasterStartBuffer(PUBLIC_ADDRESS);
-	bstMasterWrite8(GPS_POSITION_FRAME_ID);
-	bstMasterWrite32(lat); // Status: Complete
-	bstMasterWrite32(lon); // Status: Complete
-	bstMasterWrite16(speed); // Status: ( km/h * 10 )
-	bstMasterWrite16(gpsHeading); // Status: ?
-	bstMasterWrite16(altitude); // Status: OK, in Meters, +1000 added as offset
-	bstMasterWrite8(numOfSat); // Status: OK
-	bstMasterWrite8(0x00); // Status: ?
+	bst_reset_buffer(PUBLIC_ADDRESS);
+	bst_buffer8(GPS_POSITION_FRAME_ID);
+	bst_buffer32(lat); // Status: Complete
+	bst_buffer32(lon); // Status: Complete
+	bst_buffer16(speed); // Status: ( km/h * 10 )
+	bst_buffer16(gpsHeading); // Status: ?
+	bst_buffer16(altitude); // Status: OK, in Meters, +1000 added as offset
+	bst_buffer8(numOfSat); // Status: OK
+	bst_buffer8(0x00); // Status: ?
 		
-	return bstMasterWrite(masterWriteData);
+	return bst_master_write(bst_write_buffer);
 }
 
-static bool writeBatteryStatusToBST(void)
+static bool bst_write_vector_battery(void)
 {
 	uint16_t voltage = vot_telemetry.SensorTelemetry.PackVoltageX100 / 10; // BST: VoltageX10
 	uint16_t current = vot_telemetry.SensorTelemetry.PackCurrentX10; // BST: CurrentX10
 	uint32_t mAHConsumed = vot_telemetry.SensorTelemetry.mAHConsumed; // BST: mAHConsumed
 
-	BST_VPRINTLN("Write Battery Status...");
+	BST_DPRINTLN(F("Write Battery Status..."));
 
-	bstMasterStartBuffer(PUBLIC_ADDRESS);
-	bstMasterWrite8(BATTERY_STATUS_FRAME_ID);
-	bstMasterWrite16(voltage); // Status: Complete
-	bstMasterWrite16(current); // Status: Complete
-	bstMasterWrite8(mAHConsumed >> 16); // Status: Complete
-	bstMasterWrite8(mAHConsumed >> 8);
-	bstMasterWrite8(mAHConsumed);
-	// bstMasterWrite8(mAHConsumed); // Battery Percentage... this only appears in CRSF code so for now we don't use this
+	bst_reset_buffer(PUBLIC_ADDRESS);
+	bst_buffer8(BATTERY_STATUS_FRAME_ID);
+	bst_buffer16(voltage); // Status: Complete
+	bst_buffer16(current); // Status: Complete
+	bst_buffer8(mAHConsumed >> 16); // Status: Complete
+	bst_buffer8(mAHConsumed >> 8);
+	bst_buffer8(mAHConsumed);
+	// bst_buffer8(mAHConsumed); // Battery Percentage... this only appears in CRSF code so for now we don't use this
 
-	return bstMasterWrite(masterWriteData);
+	return bst_master_write(bst_write_buffer);
 }
 
 
-static bool writeRollPitchYawToBST(void)
+static bool bst_write_vector_rpy(void)
 {
-#if 1
 	/* Send coordinates as +/- 3.14159(PI)X10000 */
 	/* This is the default for auto-discovery... */
 	int16_t X = (31416 * ((int32_t)vot_telemetry.SensorTelemetry.Attitude.PitchDegrees)) / 180; 
 	int16_t Y = (31416 * ((int32_t)vot_telemetry.SensorTelemetry.Attitude.RollDegrees)) / 180;
 	int16_t Z = (31416 * ((int32_t)vot_telemetry.SensorTelemetry.Attitude.YawDegrees)) / 180;
-#else
-	/* Send coordinates as +/- 180X100 degrees */
-	/* Scaling needs to be done in the Taranis. Ratio = 25.5 works */
-	int16_t X = vot_telemetry.SensorTelemetry.Attitude.PitchDegrees * 100; 
-	int16_t Y = vot_telemetry.SensorTelemetry.Attitude.RollDegrees * 100;
-	int16_t Z = vot_telemetry.SensorTelemetry.Attitude.YawDegrees * 100;
-#endif
 
-	BST_VPRINTLN("Write RPY...");
+	BST_DPRINTLN(F("Write RPY..."));
 
-	bstMasterStartBuffer(PUBLIC_ADDRESS);
-	bstMasterWrite8(FC_ATTITUDE_FRAME_ID);
-	bstMasterWrite16(X); // Status: Complete
-	bstMasterWrite16(Y); // Status: Complete
-	bstMasterWrite16(Z); // Status: Complete
+	bst_reset_buffer(PUBLIC_ADDRESS);
+	bst_buffer8(FC_ATTITUDE_FRAME_ID);
+	bst_buffer16(X); // Status: Complete
+	bst_buffer16(Y); // Status: Complete
+	bst_buffer16(Z); // Status: Complete
 
-	return bstMasterWrite(masterWriteData);
+	return bst_master_write(bst_write_buffer);
 }
 
-static bool writeRCChannelToBST(void)
-{
 #if 0
-	uint8_t i = 0;
-	bstMasterStartBuffer(PUBLIC_ADDRESS);
-	bstMasterWrite8(RC_CHANNEL_FRAME_ID);
-	for (i = 0; i < (USABLE_TIMER_CHANNEL_COUNT-1); i++) {
-		bstMasterWrite16(rcData[i]);
+static bool bst_read_rc_channels(void)
+{
+	const int len = 32;
+
+	BST_PRINT(F("Read RC Pos..."));
+
+	Wire.requestFrom(PUBLIC_ADDRESS, len);    // request len bytes from slave device
+
+	while(Wire.available())    // slave may send less than requested
+	{	 
+		char c = Wire.read();    // receive a byte as character
+		BST_HEX_PRINT(c);         // print the character
+		BST_PRINT(' ');
 	}
-	
-	return bstMasterWrite(masterWriteData);
-#else
-	BST_VPRINTLN("Write RC Pos...");
+
+	BST_PRINTLN(F(""));
+
 	return true;
-#endif
 }
 
-static bool writeFCModeToBST(void)
+static bool bst_write_rc_channels(void)
 {
-	uint8_t flags = 0;
-	uint8_t sensors = 0;
+	uint8_t i = 0;
 
-	flags = 0 |
-#if 0
-	        IS_ENABLED(ARMING_FLAG(ARMED)) |
-	        IS_ENABLED(FLIGHT_MODE(ANGLE_MODE)) << 1 |
-	        IS_ENABLED(FLIGHT_MODE(HORIZON_MODE)) << 2 |
-	        IS_ENABLED(FLIGHT_MODE(BARO_MODE)) << 3 |
-	        IS_ENABLED(FLIGHT_MODE(MAG_MODE)) << 4 |
-	        IS_ENABLED(IS_RC_MODE_ACTIVE(BOXAIRMODE)) << 5 |
-	        IS_ENABLED(FLIGHT_MODE(RANGEFINDER_MODE)) << 6 |
-	        IS_ENABLED(FLIGHT_MODE(FAILSAFE_MODE)) << 7 |
-#else
-	        0x01 |  /* Dummy flag for ARMED */
-#endif
-	        0;
-	
-	sensors = 0 |
-#if 0
-	          sensors(SENSOR_ACC) |
-	          sensors(SENSOR_BARO) << 1 |
-	          sensors(SENSOR_MAG) << 2 |
-	          sensors(SENSOR_GPS) << 3 |
-	          sensors(SENSOR_RANGEFINDER) << 4 |
-#else
-	          0x09 |  /* Dummy flag for ACC and GPS */
-#endif
-	          0;
+	BST_PRINTLN(F("Write RC Pos..."));
 
-	BST_VPRINTLN("Write FC Mode...");
-	bstMasterStartBuffer(PUBLIC_ADDRESS);
-	bstMasterWrite8(CLEANFLIGHT_MODE_FRAME_ID);
-	bstMasterWrite8(flags); // Status: ?
-	bstMasterWrite8(sensors); // Status: ?
-	
-	return bstMasterWrite(masterWriteData);
-}
-
-
-/* ----------------------------------------------------- */
-
-
-#if 0
-void i2c_scan(void)
-{
-	uint8_t error, address;
-	int nDevices;
-	
-	nDevices = 0;
-	for(address = 0; address < 127; address++ )
-	{
-		// The i2c_scanner uses the return value of
-		// the Write.endTransmisstion to see if
-		// a device did acknowledge to the address.
-		Wire.beginTransmission(address);
-		error = Wire.endTransmission();
-		
-		if (error == 0)
-		{
-			BST_PRINT("I2C device found at address 0x");
-			if (address<16)
-				BST_PRINT("0");
-			BST_PRINTLN(address,HEX);		
-			nDevices++;
-		}
-		else if (error==4)
-		{
-			BST_PRINT("Unknown error at address 0x");
-			if (address<16)
-				BST_PRINT("0");
-			BST_PRINTLN(address,HEX);
-		}    
+	bst_reset_buffer(PUBLIC_ADDRESS);
+	bst_buffer8(RC_CHANNEL_FRAME_ID);
+	for (i = 0; i < (USABLE_TIMER_CHANNEL_COUNT-1); i++) {
+		bst_buffer16(100 * i);
 	}
-	if (nDevices == 0)
-		BST_PRINTLN("No I2C devices found\n");
-	else
-		BST_PRINTLN("done\n");
-
-	delay(5000);           // wait 5 seconds for next scan
+	
+	return bst_master_write(bst_write_buffer);
 }
 #endif
+
+static bool bst_write_vector_fc_mode(void)
+{
+	uint8_t fm = MIN(vot_telemetry.PresentFlightMode, VECTOR_FLIGHT_MODE_MAX);  // Clamp the flight mode index to the legit range
+	const char * fm_str = vot_flight_mode_strings[fm];
+	uint8_t len = MIN(15, strlen(fm_str));  // Maximum string length of 16 bytes including the NULL
+
+	BST_PRINT(F("Write FC Mode..."));
+	BST_HEX_PRINT(vot_telemetry.PresentFlightMode);
+	BST_PRINTLN(F(""));
+
+	bst_reset_buffer(PUBLIC_ADDRESS);
+	bst_buffer8(FLIGHT_MODE_FRAME_ID);
+
+	for(int i = 0; i < len; i++) bst_buffer8(fm_str[i]);
+	bst_buffer8(0); // NULL Terminate the string
+
+	return bst_master_write(bst_write_buffer);
+}
+
+
+
+
