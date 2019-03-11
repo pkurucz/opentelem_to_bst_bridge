@@ -86,6 +86,7 @@ My offer still stands to implement CRSF in the vector codebase pro-bono.  Would 
 ## TBS:
 
 Feel free to barrow the parsing and conversion code here if you'd like to implement opentelemetry support natively in your receivers (saving us the hassle of having to do this)
+And like the offer to ET, I'd be willing to implement this for you in your codebase pro-bono if that is something your interested in. 
 
 ~pk
 
