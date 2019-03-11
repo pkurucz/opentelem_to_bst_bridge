@@ -50,13 +50,11 @@ for lua scripts and the like.
 			* Roll (Verify this is correct...)
 			* Pitch (Verify this is correct...)
 			* Yaw (Verify this is correct...)
-
-			
+		* FC mode (ID: 0x21 PX4)
+			* Returns mode as a string. i.e.: 2D, 2D_AH
 
 ### Todo:
 	* Support Telemetry Data
-		* FC mode (ID: 0x20 or 0x21 PX4)
-			* Armed, angle, horizon, failsafe
 		* GPS Time (Confirm if possible, ID: 0x03)
 		* RC Data (if possible? 0x15)
 			* To read switch position for WS2812 led modes?
