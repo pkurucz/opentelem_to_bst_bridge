@@ -483,9 +483,9 @@ static bool bst_write_vector_fc_mode(void)
 	const char * fm_str = vot_flight_mode_strings[fm];
 	uint8_t len = MIN(15, strlen(fm_str));  // Maximum string length of 16 bytes including the NULL
 
-	BST_PRINT(F("Write FC Mode..."));
-	BST_HEX_PRINT(vot_telemetry.PresentFlightMode);
-	BST_PRINTLN(F(""));
+	BST_DPRINT(F("Write FC Mode..."));
+	BST_HEX_DPRINT(vot_telemetry.PresentFlightMode);
+	BST_DPRINTLN(F(""));
 
 	bst_reset_buffer(PUBLIC_ADDRESS);
 	bst_buffer8(FLIGHT_MODE_FRAME_ID);
