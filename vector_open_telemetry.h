@@ -119,6 +119,7 @@ typedef struct
 
 extern VECTOR_OPEN_TELEMETRY vot_telemetry;
 extern bool vot_telemetry_valid;
+extern const char * const vot_flight_mode_strings[];
 
 /* ----------------------------------------------------- */
 

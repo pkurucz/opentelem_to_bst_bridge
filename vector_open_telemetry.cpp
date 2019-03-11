@@ -40,14 +40,44 @@ unsigned long vot_telemetry_prev_timestamp;
 unsigned long vot_telemetry_timestamp;
 uint32_t vot_prev_TimestampMS;
 
+const char * const vot_flight_mode_strings[] = {
+	"2D",
+	"2D_AH",
+	"2D_HH",
+	"2D_AH_HH",
+	"LOITER",
+	"3D",
+	"3D_HH",
+	"RTH",
+	"LAND",
+	"CART",
+	"CART_LOITER",
+	"POLAR",
+	"POLAR_LOITER",
+	"CENTER_STICK",
+	"OFF",
+	"WAYPOINT",
+	"MAX",
+};
+
 /* ----------------------------------------------------- */
 /*        Local Variables and function prototypes        */
 
+static uint8_t parse_state = 0;
+static uint8_t parse_buffer[sizeof(VECTOR_OPEN_TELEMETRY)];
+static uint16_t parse_crc;
+
+
 static void vot_ntoh(void);
 static uint16_t vot_CRC16Worker(uint16_t icrc, uint8_t r0);
+
 #if !defined(VOT_STREAMING_CRC)
 static uint16_t vot_CalculateCRC(uint8_t * pPacket, uint8_t Size, uint16_t InitCRC);
 #endif
+
+
+/* ----------------------------------------------------- */
+/*               UART interface prototype                */
 
 #if defined(VOT_HARDWARE_UART)
 #define VOT_UART Serial
@@ -61,15 +91,12 @@ SoftwareSerial vot_uart(8, 9);
 #define VOT_UART vot_uart
 #endif
 
+
+/* ----------------------------------------------------- */
+
 #if defined(VOT_PRINT_TELEMETRY_DATA)
 static void vot_print_telemetry_data(void);
 #endif
-
-static uint8_t parse_state = 0;
-static uint8_t parse_buffer[sizeof(VECTOR_OPEN_TELEMETRY)];
-static uint16_t parse_crc;
-
-/* ----------------------------------------------------- */
 
 #if defined(VOT_PRINT_TELEMETRY_DATA)
 static const char * const vot_flightmodes[] = {
@@ -97,26 +124,23 @@ static const char * const vot_flightmodes[] = {
 
 void vot_init(void) {
 #if !defined(VOT_HARDWARE_UART)
+  /* Init the uart class to the right baud */
 	VOT_UART.begin(57600);
 #endif
 
+  /* Set state variables to sane defaults */
 	parse_state = 0;
 	vot_telemetry_valid = false;
 	vot_telemetry_timestamp = millis();
 	vot_telemetry_prev_timestamp = vot_telemetry_timestamp;
 	vot_prev_TimestampMS = 0;
 	memset(&vot_telemetry, 0, sizeof(vot_telemetry));
+
 }
 
 void vot_handler_task(void) {
 	while(VOT_UART.available()) {
 		uint8_t ch = VOT_UART.read();
-
-#if 0
-		Serial.print(" ");
-		if(parse_state < 4) Serial.print("?");
-		vot_hex_print(ch);
-#endif
 
 		switch(parse_state) {
 			/* VECTOR_TELEMETRY_PACKET_START_CODE = 0xB01EDEAD */
@@ -179,13 +203,9 @@ void vot_handler_task(void) {
 #endif
         Serial.print('.');
 //				Serial.println(F("VOT!"));
-//				Serial.print(F("VOT! aurdino delta: "));
-//				Serial.println(vot_telemetry_timestamp - vot_telemetry_prev_timestamp ,DEC);
-//				Serial.print(F("vector delta: "));
-//				Serial.println(vot_telemetry.TimestampMS - vot_prev_TimestampMS,DEC);
 
 			} else {
-        Serial.println('!');
+        Serial.println('*');
 //        Serial.println(F("!VOT_CRC!"));
 			}
 			parse_state = 0;
@@ -195,7 +215,8 @@ void vot_handler_task(void) {
 	/* Clear the telemetry valid flag if the data is stale */
 	if(vot_telemetry_valid && ((millis() - vot_telemetry_timestamp) > VOT_TELEMETRY_TIMEOUT_MS)) {
 		vot_telemetry_valid = false;
-		Serial.println(F("!VOT_TELEM_TIMEOUT!"));
+    Serial.println('!');
+  //		Serial.println(F("!VOT_TELEM_TIMEOUT!"));
 	}
 
 
