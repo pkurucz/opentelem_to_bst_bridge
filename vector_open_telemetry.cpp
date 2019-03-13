@@ -1,5 +1,24 @@
-/* Eagletree Vector Open Telemetry Protocol Handler
+/*
+ * Eagletree Vector Open Telemetry Protocol Handler
  *  Datatype definitions and helper functions
+ *
+ * Definitions taken from:
+ *   https://www.rcgroups.com/forums/showthread.php?2585582-Vector-Open-Telemetry-and-DragonLink-Advanced-support%21
+ *   Version: Vector Open Telemetry Revision 0
+ *
+ * ------------------------------------------------
+ *
+ * Copyright (C) 2019 Paul Kurucz
+ * 
+ * License info: See the LICENSE file at the repo top level
+ *
+ * THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES,
+ * WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
+ * TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,
+ * IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
+ * CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
+ *
  */
 
 #include <stdint.h>

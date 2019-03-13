@@ -1,8 +1,23 @@
 /*
- * This is a Arduino project that handles converting
- * Eagletree Vector Open Telemetry serial data (57600 Baud)
- * to Team Blacksheep (TBS) BST (Blacksheep Telemetry)
- * on an I2C bus.
+ * opentelem_to_bst_bridge:
+ *  This is an Arduino project that handles converting
+ *  Eagletree Vector Open Telemetry serial data (57600 Baud)
+ *  to Team Blacksheep (TBS) BST (Blacksheep Telemetry)
+ *  on an I2C bus.
+ *
+ * ------------------------------------------------
+ *
+ * Copyright (C) 2019 Paul Kurucz
+ * 
+ * License info: See the LICENSE file at the repo top level
+ *
+ * THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES,
+ * WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
+ * TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,
+ * IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
+ * CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
+ *
  */
 
 /*
@@ -12,7 +27,6 @@
  *   handled properly.
  * - Heading / vot_telemetry.GPSTelemetry.CourseDegrees Make sure this is scaled properly
  *   either in BST code or on the taranis
- * - Map the flight controller modes from vector->bst
  * - Add in support for extra Vector data throught the RC channels?
  */
 
